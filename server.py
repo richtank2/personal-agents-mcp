@@ -1,7 +1,6 @@
 """
 MCP Server — Personal Agents MCP (AgentMail + HubSpot)
-v.1.4
-Production-style MCP server with structured logging and Bearer Security.
+Production-style MCP server with Full Email Body Access.
 By Richard Tanksley
 """
 
@@ -53,27 +52,15 @@ def require_env(name: str) -> str:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return value
 
-# Security Token for MCP Authentication
 MCP_ACCESS_TOKEN = require_env("MCP_ACCESS_TOKEN")
-
-# API Credentials
 AGENTMAIL_API_KEY = require_env("AGENTMAIL_API_KEY")
 HUBSPOT_ACCESS_TOKEN = require_env("HUBSPOT_ACCESS_TOKEN")
 
-# Constants
 AGENTMAIL_UNIFIED_ID = "unified@agentmail.to"
 AGENTMAIL_INBOX_ID = "sillybar537@agentmail.to"
 
-# Global Headers
-agentmail_headers = {
-    "Authorization": f"Bearer {AGENTMAIL_API_KEY}",
-    "Content-Type": "application/json",
-}
-
-hubspot_headers = {
-    "Authorization": f"Bearer {HUBSPOT_ACCESS_TOKEN}",
-    "Content-Type": "application/json",
-}
+agentmail_headers = {"Authorization": f"Bearer {AGENTMAIL_API_KEY}", "Content-Type": "application/json"}
+hubspot_headers = {"Authorization": f"Bearer {HUBSPOT_ACCESS_TOKEN}", "Content-Type": "application/json"}
 
 # ── MCP Server ────────────────────────────────────────────────────────────────
 
@@ -86,11 +73,11 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="list_emails",
-            description="List recent emails across all agents using the unified inbox.",
+            description="Read recent emails including full message bodies for parsing and analysis.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "default": 10},
+                    "limit": {"type": "integer", "default": 5, "description": "Number of emails to retrieve (max 50)."},
                 },
             },
         ),
@@ -105,20 +92,20 @@ async def list_tools() -> list[Tool]:
                     "subject": {"type": "string"},
                     "text": {"type": "string"},
                     "html": {"type": "string"},
-                    "from_inbox": {"type": "string", "description": "Override default sender inbox ID."},
+                    "from_inbox": {"type": "string"},
                 },
             },
         ),
         Tool(
             name="hubspot_request",
-            description="Universal tool to access any HubSpot CRM V3 API endpoint. DELETE is prohibited.",
+            description="Universal HubSpot API access. DELETE is prohibited.",
             inputSchema={
                 "type": "object",
                 "required": ["method", "path"],
                 "properties": {
                     "method": {"type": "string", "enum": ["GET", "POST", "PATCH", "PUT"]},
-                    "path": {"type": "string", "description": "The API path, e.g., 'crm/v3/objects/contacts'"},
-                    "body": {"type": "object", "description": "The JSON payload for the request"}
+                    "path": {"type": "string"},
+                    "body": {"type": "object"}
                 },
             },
         ),
@@ -129,7 +116,7 @@ async def list_tools() -> list[Tool]:
 @mcp.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     request_id = str(uuid.uuid4())
-    log.log("tool_call_start", request_id=request_id, tool=name, arguments=arguments)
+    log.log("tool_call_start", request_id=request_id, tool=name)
 
     try:
         if name == "list_emails":
@@ -140,86 +127,81 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await tool_hubspot_universal_proxy(arguments)
         else:
             result = [TextContent(type="text", text=f"Unknown tool: {name}")]
-
-        log.log("tool_call_success", request_id=request_id, tool=name)
+        
+        log.log("tool_call_success", request_id=request_id)
         return result
-
     except Exception as e:
-        log.log("tool_call_error", request_id=request_id, tool=name, error=str(e))
+        log.log("tool_call_error", request_id=request_id, error=str(e))
         return [TextContent(type="text", text=f"Error: {str(e)}")]
 
 # ── Tool Implementations ──────────────────────────────────────────────────────
 
 async def tool_list_emails(args: dict):
-    limit = min(args.get("limit", 10), 50)
+    limit = min(args.get("limit", 5), 50)
     url = f"https://api.agentmail.to/v0/inboxes/{AGENTMAIL_UNIFIED_ID}/messages"
+    
     resp = requests.get(url, headers=agentmail_headers, params={"limit": limit})
     if not resp.ok:
         return [TextContent(type="text", text=f"AgentMail Error: {resp.status_code}")]
     
     data = resp.json()
     messages = data.get("messages", [])
-    output = "\n".join([f"- From: {m.get('from')} | Subject: {m.get('subject')}" for m in messages])
-    return [TextContent(type="text", text=output or "No messages found.")]
+    
+    if not messages:
+        return [TextContent(type="text", text="No emails found.")]
+
+    # Enhanced Formatting: Including the full body for parsing
+    formatted_messages = []
+    for m in messages:
+        msg_detail = (
+            f"--- EMAIL START ---\n"
+            f"ID: {m.get('id')}\n"
+            f"From: {m.get('from')}\n"
+            f"Subject: {m.get('subject')}\n"
+            f"Body:\n{m.get('text', m.get('body', '[No Content]'))}\n"
+            f"--- EMAIL END ---\n"
+        )
+        formatted_messages.append(msg_detail)
+    
+    return [TextContent(type="text", text="\n".join(formatted_messages))]
 
 async def tool_send_email(args: dict):
     sender_id = args.get("from_inbox") or AGENTMAIL_INBOX_ID
     url = f"https://api.agentmail.to/v0/inboxes/{sender_id}/messages"
     payload = {"to": args["to"], "subject": args["subject"], "text": args["text"]}
     if "html" in args: payload["html"] = args["html"]
-    
     resp = requests.post(url, headers=agentmail_headers, json=payload)
-    status = "successfully sent" if resp.ok else f"failed with status {resp.status_code}"
-    return [TextContent(type="text", text=f"Email {status}.")]
+    return [TextContent(type="text", text="Success" if resp.ok else f"Failed: {resp.status_code}")]
 
 async def tool_hubspot_universal_proxy(args: dict):
     method = args["method"].upper()
     if method == "DELETE":
-        return [TextContent(type="text", text="Error: DELETE operations are prohibited.")]
-    
+        return [TextContent(type="text", text="Error: DELETE prohibited.")]
     path = args["path"].lstrip("/")
     url = f"https://api.hubapi.com/{path}"
-    
-    resp = requests.request(
-        method=method,
-        url=url,
-        headers=hubspot_headers,
-        json=args.get("body", {})
-    )
+    resp = requests.request(method=method, url=url, headers=hubspot_headers, json=args.get("body", {}))
+    return [TextContent(type="text", text=json.dumps(resp.json(), indent=2))]
 
-    try:
-        return [TextContent(type="text", text=json.dumps(resp.json(), indent=2))]
-    except:
-        return [TextContent(type="text", text=f"Request status: {resp.status_code}")]
-
-# ── App Logic ────────────────────────────────────────────────────────────────
+# ── App Logic & Security ──────────────────────────────────────────────────────
 
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
-    # Security: Verify Bearer Token
     auth_header = request.headers.get("Authorization")
-    expected_auth = f"Bearer {MCP_ACCESS_TOKEN}"
-
-    if not auth_header or auth_header != expected_auth:
-        log.log("unauthorized_access_attempt", ip=request.client.host)
+    if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
+        log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    async with sse_transport.connect_sse(
-        request.scope,
-        request.receive,
-        request._send
-    ) as streams:
+    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
         await mcp.run(streams, streams, mcp.create_initialization_options())
 
 async def landing(request: Request):
     base_path = os.path.dirname(__file__)
-    template_path = os.path.join(base_path, "templates", "landing.html")
     try:
-        with open(template_path, "r", encoding="utf-8") as f:
+        with open(os.path.join(base_path, "templates", "landing.html"), "r") as f:
             return HTMLResponse(f.read())
-    except FileNotFoundError:
-        return HTMLResponse("<h1>Server Online</h1><p>Portfolio template not found.</p>")
+    except:
+        return HTMLResponse("<h1>Server Online</h1>")
 
 app = Starlette(
     routes=[
@@ -232,6 +214,4 @@ app = Starlette(
 )
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    log.log("server_starting", port=port)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
