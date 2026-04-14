@@ -127,12 +127,18 @@ async def handle_sse(request: Request):
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    # 2. Handshake Logic (Adaptive for GET/POST)
+    # 2. Handshake Logic (CRITICAL FIX)
     if request.method == "POST":
-        log.log("handshake_received", method="POST", ip=request.client.host)
-        return JSONResponse({"status": "ready", "endpoint": "/sse"})
+        log.log("handshake_received", method="POST")
+        # Instead of just saying 'ready', we provide the exact URL for messages.
+        # This helps Manus find the '/messages' endpoint for RPC calls.
+        return JSONResponse({
+            "status": "ready", 
+            "sse_endpoint": "/sse", 
+            "message_endpoint": "/messages"
+        })
 
-    # 3. Standard SSE GET logic (The persistent stream)
+    # 3. Standard SSE GET logic
     async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
         log.log("sse_connection_established", ip=request.client.host)
         await mcp.run(
