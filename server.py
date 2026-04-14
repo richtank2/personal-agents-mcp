@@ -1,9 +1,3 @@
-"""
-MCP Server — Personal Agents MCP (AgentMail + HubSpot)
-Fixed SSE Stream Unpacking for Manus AI Compatibility
-By Richard Tanksley
-"""
-
 import os
 import json
 import uuid
@@ -127,40 +121,35 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
-    try:
-        # 1. Security Check
-        auth_header = request.headers.get("Authorization")
-        if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
-            log.log("unauthorized_access", ip=request.client.host)
-            return Response("Unauthorized", status_code=401)
+    # 1. Security Check
+    auth_header = request.headers.get("Authorization")
+    if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
+        log.log("unauthorized_access", ip=request.client.host)
+        return Response("Unauthorized", status_code=401)
 
-        # 2. Handshake Logic
-        # If Manus POSTs to /sse, we treat it as a message/handshake
-        if request.method == "POST":
-            return await sse_transport.handle_post_message(request.scope, request.receive, request._send)
+    # 2. Handshake Logic (Adaptive for GET/POST)
+    if request.method == "POST":
+        log.log("handshake_received", method="POST", ip=request.client.host)
+        return JSONResponse({"status": "ready", "endpoint": "/sse"})
 
-        # 3. Standard SSE GET logic
-        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-            log.log("sse_connection_established", ip=request.client.host)
-            await mcp.run(
-                read_stream, 
-                write_stream, 
-                mcp.create_initialization_options()
-            )
-    except Exception as e:
-        log.log("critical_server_error", error=str(e))
-        # This will show up in your Render logs so we can see the real error
-        return Response(f"Internal Error: {str(e)}", status_code=500)
+    # 3. Standard SSE GET logic (The persistent stream)
+    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+        log.log("sse_connection_established", ip=request.client.host)
+        await mcp.run(
+            read_stream, 
+            write_stream, 
+            mcp.create_initialization_options()
+        )
 
 async def landing(request: Request):
     base_path = os.path.dirname(__file__)
     try:
         with open(os.path.join(base_path, "templates", "landing.html"), "r") as f:
             return HTMLResponse(f.read())
-    except:
-        return HTMLResponse("<h1>Server Online</h1>")
+    except Exception:
+        return HTMLResponse("<h1>Server Online</h1><p>MCP endpoint: /sse</p>")
 
-# ── App Definition (Routes at the Bottom) ─────────────────────────────────────
+# ── App Definition ────────────────────────────────────────────────────────────
 
 app = Starlette(
     routes=[
