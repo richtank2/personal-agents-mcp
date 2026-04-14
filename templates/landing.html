@@ -1,0 +1,68 @@
+LANDING_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richard Tanksley | Personal Agents MCP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <div class="max-w-4xl mx-auto py-20 px-6">
+        <header class="mb-12">
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl mb-4">
+                Personal Agents MCP Server
+            </h1>
+            <p class="text-xl text-slate-600">
+                A production-grade Model Context Protocol (MCP) implementation bridge for <strong>AgentMail</strong> and <strong>HubSpot CRM</strong>.
+            </p>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold mb-2 text-indigo-600">The Problem</h2>
+                <p class="text-slate-600">Sales teams lose 30% of their day to CRM "administrative debt" and context switching between email and lead tracking.</p>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold mb-2 text-indigo-600">The AI Solution</h2>
+                <p class="text-slate-600">This server allows LLMs (Claude/GPT) to autonomously manage the MEDDPICC pipeline by linking communication directly to HubSpot records.</p>
+            </div>
+        </section>
+
+        <section class="mb-16">
+            <h2 class="text-2xl font-bold mb-6">Core Capabilities</h2>
+            <div class="space-y-4">
+                <div class="flex items-start">
+                    <div class="bg-indigo-100 text-indigo-700 p-2 rounded-lg mr-4 font-mono font-bold text-sm">TOOL</div>
+                    <div>
+                        <h3 class="font-bold">Unified Inbox Intelligence</h3>
+                        <p class="text-slate-600">Aggregates multi-agent communications via AgentMail into a single stream for LLM analysis.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="bg-indigo-100 text-indigo-700 p-2 rounded-lg mr-4 font-mono font-bold text-sm">TOOL</div>
+                    <div>
+                        <h3 class="font-bold">Automated HubSpot Sync</h3>
+                        <p class="text-slate-600">Instantly creates contacts and deals based on email sentiment and intent detection.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="pt-8 border-t border-slate-200">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <span class="w-2 h-2 mr-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Server Status: Online
+                    </span>
+                </div>
+                <div class="text-slate-500 text-sm">
+                    Built by Richard Tanksley • 2026
+                </div>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
+"""
