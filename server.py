@@ -127,15 +127,26 @@ async def handle_sse(request: Request):
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    # 2. Handshake Logic (CRITICAL FIX)
+    # 2. Handshake Logic (Protocol-Mirroring)
     if request.method == "POST":
-        log.log("handshake_received", method="POST")
-        # Instead of just saying 'ready', we provide the exact URL for messages.
-        # This helps Manus find the '/messages' endpoint for RPC calls.
+        try:
+            body = await request.json()
+            request_id = body.get("id")
+        except:
+            request_id = None
+
+        log.log("handshake_received", method="POST", rpc_id=request_id)
+
+        # We wrap the response in a proper JSON-RPC structure
+        # This gives Manus the 'id' it is hunting for.
         return JSONResponse({
-            "status": "ready", 
-            "sse_endpoint": "/sse", 
-            "message_endpoint": "/messages"
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "status": "ready",
+                "sse_endpoint": "/sse",
+                "message_endpoint": "/messages"
+            }
         })
 
     # 3. Standard SSE GET logic
