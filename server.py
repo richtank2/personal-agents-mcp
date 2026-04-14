@@ -55,7 +55,6 @@ def require_env(name: str) -> str:
 
 AGENTMAIL_API_KEY = require_env("AGENTMAIL_API_KEY")
 AGENTMAIL_UNIFIED_ID = "unified@agentmail.to"
-# Default sender address
 AGENTMAIL_INBOX_ID = "sillybar537@agentmail.to"
 
 HUBSPOT_ACCESS_TOKEN = require_env("HUBSPOT_ACCESS_TOKEN")
@@ -105,8 +104,21 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="hubspot_request",
+            description="Universal tool to access any HubSpot CRM V3 API endpoint. Method 'DELETE' is disabled for safety.",
+            inputSchema={
+                "type": "object",
+                "required": ["method", "path"],
+                "properties": {
+                    "method": {"type": "string", "enum": ["GET", "POST", "PATCH", "PUT"]},
+                    "path": {"type": "string", "description": "The API path, e.g., 'crm/v3/objects/contacts'"},
+                    "body": {"type": "object", "description": "The JSON payload for the request"}
+                },
+            },
+        ),
+        Tool(
             name="create_hubspot_contact",
-            description="Create HubSpot contact.",
+            description="Simplified helper to create a HubSpot contact.",
             inputSchema={
                 "type": "object",
                 "required": ["email"],
@@ -114,23 +126,6 @@ async def list_tools() -> list[Tool]:
                     "email": {"type": "string"},
                     "firstname": {"type": "string"},
                     "lastname": {"type": "string"},
-                    "phone": {"type": "string"},
-                    "company": {"type": "string"},
-                },
-            },
-        ),
-        Tool(
-            name="create_hubspot_deal",
-            description="Create HubSpot deal.",
-            inputSchema={
-                "type": "object",
-                "required": ["dealname"],
-                "properties": {
-                    "dealname": {"type": "string"},
-                    "amount": {"type": "string"},
-                    "dealstage": {"type": "string", "default": "appointmentscheduled"},
-                    "closedate": {"type": "string"},
-                    "pipeline": {"type": "string", "default": "default"},
                 },
             },
         ),
@@ -148,10 +143,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await tool_list_emails(arguments)
         elif name == "send_email":
             result = await tool_send_email(arguments)
+        elif name == "hubspot_request":
+            result = await tool_hubspot_universal_proxy(arguments)
         elif name == "create_hubspot_contact":
-            result = await tool_create_hubspot_contact(arguments)
-        elif name == "create_hubspot_deal":
-            result = await tool_create_hubspot_deal(arguments)
+            # Repurposing the universal proxy for the simplified tool
+            arguments["method"] = "POST"
+            arguments["path"] = "crm/v3/objects/contacts"
+            arguments["body"] = {"properties": {k: v for k, v in arguments.items() if k not in ["method", "path", "body"]}}
+            result = await tool_hubspot_universal_proxy(arguments)
         else:
             result = [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -182,15 +181,28 @@ async def tool_send_email(args: dict):
     resp = requests.post(url, headers=agentmail_headers, json=payload)
     return [TextContent(type="text", text="Email sent successfully." if resp.ok else "Failed to send email")]
 
-async def tool_create_hubspot_contact(args: dict):
-    url = "https://api.hubapi.com/crm/v3/objects/contacts"
-    resp = requests.post(url, headers=hubspot_headers, json={"properties": args})
-    return [TextContent(type="text", text=f"Contact ID: {resp.json().get('id')}" if resp.ok else "HubSpot error")]
+async def tool_hubspot_universal_proxy(args: dict):
+    method = args["method"].upper()
+    # Security check to prevent any clever bypasses of the enum
+    if method == "DELETE":
+        return [TextContent(type="text", text="Error: DELETE operations are prohibited.")]
+    
+    path = args["path"].lstrip("/")
+    url = f"https://api.hubapi.com/{path}"
+    
+    resp = requests.request(
+        method=method,
+        url=url,
+        headers=hubspot_headers,
+        json=args.get("body", {})
+    )
 
-async def tool_create_hubspot_deal(args: dict):
-    url = "https://api.hubapi.com/crm/v3/objects/deals"
-    resp = requests.post(url, headers=hubspot_headers, json={"properties": args})
-    return [TextContent(type="text", text=f"Deal ID: {resp.json().get('id')}" if resp.ok else "HubSpot error")]
+    try:
+        data = resp.json()
+    except:
+        data = {"response": resp.text}
+
+    return [TextContent(type="text", text=json.dumps(data, indent=2))]
 
 # ── Landing Page Loader ──────────────────────────────────────────────────────
 
@@ -201,7 +213,6 @@ def get_landing_content():
         with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        log.log("template_error", path=template_path)
         return "<h1>Server Online</h1><p>Template not found.</p>"
 
 LANDING_HTML = get_landing_content()
@@ -216,7 +227,6 @@ async def handle_sse(request: Request):
         request.receive,
         request._send
     ) as streams:
-        # Correctly passing read and write streams
         await mcp.run(streams, streams, mcp.create_initialization_options())
 
 async def landing(request: Request):
