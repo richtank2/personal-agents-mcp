@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: agentmail-hubspot-mcp
+    name: personal-agents-mcp
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python server.py
