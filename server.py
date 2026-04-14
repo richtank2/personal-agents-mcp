@@ -127,26 +127,30 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
-    # 1. Security Check
-    auth_header = request.headers.get("Authorization")
-    if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
-        log.log("unauthorized_access", ip=request.client.host)
-        return Response("Unauthorized", status_code=401)
+    try:
+        # 1. Security Check
+        auth_header = request.headers.get("Authorization")
+        if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
+            log.log("unauthorized_access", ip=request.client.host)
+            return Response("Unauthorized", status_code=401)
 
-    # 2. Handshake Logic
-    # If this is a POST, it's a handshake/message. 
-    # If it's a GET, it's the stream initialization.
-    if request.method == "POST":
-        return await sse_transport.handle_post_message(request)
+        # 2. Handshake Logic
+        # If Manus POSTs to /sse, we treat it as a message/handshake
+        if request.method == "POST":
+            return await sse_transport.handle_post_message(request.scope, request.receive, request._send)
 
-    # Standard SSE GET logic
-    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-        log.log("sse_connection_established", ip=request.client.host)
-        await mcp.run(
-            read_stream, 
-            write_stream, 
-            mcp.create_initialization_options()
-        )
+        # 3. Standard SSE GET logic
+        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+            log.log("sse_connection_established", ip=request.client.host)
+            await mcp.run(
+                read_stream, 
+                write_stream, 
+                mcp.create_initialization_options()
+            )
+    except Exception as e:
+        log.log("critical_server_error", error=str(e))
+        # This will show up in your Render logs so we can see the real error
+        return Response(f"Internal Error: {str(e)}", status_code=500)
 
 async def landing(request: Request):
     base_path = os.path.dirname(__file__)
