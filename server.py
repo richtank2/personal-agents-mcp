@@ -53,7 +53,9 @@ def require_env(name: str) -> str:
     return value
 
 AGENTMAIL_API_KEY = require_env("AGENTMAIL_API_KEY")
-AGENTMAIL_INBOX_ID = require_env("AGENTMAIL_INBOX_ID")
+# Defaulting to the unified inbox for listing, while keeping a specific ID for sending
+AGENTMAIL_INBOX_ID = os.getenv("AGENTMAIL_INBOX_ID") 
+AGENTMAIL_UNIFIED_ID = "unified@agentmail.to"
 HUBSPOT_ACCESS_TOKEN = require_env("HUBSPOT_ACCESS_TOKEN")
 
 agentmail_headers = {
@@ -77,7 +79,7 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="list_emails",
-            description="List recent emails from AgentMail inbox.",
+            description="List recent emails across all agents using the unified inbox.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -87,7 +89,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="send_email",
-            description="Send email via AgentMail.",
+            description="Send email via a specific AgentMail inbox.",
             inputSchema={
                 "type": "object",
                 "required": ["to", "subject", "text"],
@@ -96,6 +98,7 @@ async def list_tools() -> list[Tool]:
                     "subject": {"type": "string"},
                     "text": {"type": "string"},
                     "html": {"type": "string"},
+                    "from_inbox": {"type": "string", "description": "Specific inbox ID to send from. Defaults to AGENTMAIL_INBOX_ID env var."},
                 },
             },
         ),
@@ -182,9 +185,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 async def tool_list_emails(args: dict):
     limit = min(args.get("limit", 10), 50)
-    url = f"https://api.agentmail.to/v0/inboxes/{AGENTMAIL_INBOX_ID}/messages"
+    # Using the Unified Inbox address to see all messages across the org
+    url = f"https://api.agentmail.to/v0/inboxes/{AGENTMAIL_UNIFIED_ID}/messages"
 
-    log.log("list_emails_request", limit=limit)
+    log.log("list_emails_request_unified", limit=limit)
 
     resp = requests.get(url, headers=agentmail_headers, params={"limit": limit})
 
@@ -206,9 +210,15 @@ async def tool_list_emails(args: dict):
 
 
 async def tool_send_email(args: dict):
-    url = f"https://api.agentmail.to/v0/inboxes/{AGENTMAIL_INBOX_ID}/messages"
+    # Sending requires a specific sender ID, it cannot use 'unified'
+    sender_id = args.get("from_inbox") or AGENTMAIL_INBOX_ID
+    
+    if not sender_id:
+        return [TextContent(type="text", text="Error: No sender inbox ID provided.")]
 
-    log.log("send_email_request", to=args["to"], subject=args["subject"])
+    url = f"https://api.agentmail.to/v0/inboxes/{sender_id}/messages"
+
+    log.log("send_email_request", to=args["to"], from_inbox=sender_id, subject=args["subject"])
 
     payload = {
         "to": args["to"],
@@ -223,7 +233,7 @@ async def tool_send_email(args: dict):
 
     if not resp.ok:
         log.log("send_email_error", status=resp.status_code)
-        return [TextContent(type="text", text="Failed to send email")]
+        return [TextContent(type="text", text=f"Failed to send email: {resp.status_code}")]
 
     log.log("send_email_success", to=args["to"])
 
@@ -290,7 +300,7 @@ async def handle_sse(request: Request):
         request.receive,
         request._send
     ) as streams:
-        await mcp.run(streams[0], streams[1], mcp.create_initialization_options())
+        await mcp.run(streams, streams, mcp.create_initialization_options())
 
 async def landing(request: Request):
     return HTMLResponse(LANDING_HTML)
@@ -303,7 +313,7 @@ app = Starlette(
         Route("/", landing),
         Route("/health", health),
         Route("/sse", handle_sse),
-        Mount("/messages", app=sse_transport.handle_post_message),
+        Route("/messages", endpoint=sse_transport.handle_post_message, methods=["POST"]),
     ]
 )
 
