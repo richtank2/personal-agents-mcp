@@ -187,27 +187,29 @@ async def tool_hubspot_universal_proxy(args: dict):
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
+    # 1. Verification of Security
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
+    # 2. Handshake Logic
+    # We must wrap the connection in the transport logic. 
+    # If Manus is POSTing here, the transport needs to handle the scope correctly.
     async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
-        await mcp.run(streams, streams, mcp.create_initialization_options())
+        log.log("sse_connection_established", ip=request.client.host)
+        await mcp.run(
+            streams, 
+            streams, 
+            mcp.create_initialization_options()
+        )
 
-async def landing(request: Request):
-    base_path = os.path.dirname(__file__)
-    try:
-        with open(os.path.join(base_path, "templates", "landing.html"), "r") as f:
-            return HTMLResponse(f.read())
-    except:
-        return HTMLResponse("<h1>Server Online</h1>")
-
+# Ensure the routes are explicitly configured for the methods
 app = Starlette(
     routes=[
         Route("/", landing),
         Route("/health", lambda r: JSONResponse({"status": "ok"})),
-        Route("/sse", handle_sse, methods=["GET", "POST"]), # Added methods here
+        Route("/sse", handle_sse, methods=["GET", "POST"]), 
         Route("/messages", endpoint=sse_transport.handle_post_message, methods=["POST"]),
         Mount("/static", app=StaticFiles(directory="static"), name="static"),
     ]
