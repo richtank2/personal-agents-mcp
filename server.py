@@ -283,12 +283,23 @@ async def tool_create_hubspot_deal(args: dict):
 
     return [TextContent(type="text", text=f"Deal ID: {deal['id']}")]
 
-# ── Landing Page ──────────────────────────────────────────────────────────────
+# ── Landing Page Loader ──────────────────────────────────────────────────────
 
-LANDING_HTML = """
-<h1>Personal Agents MCP Server</h1>
-<p>Running with structured logging enabled.</p>
-"""
+def get_landing_content():
+    # Use an absolute path based on this file's location to avoid Render path errors
+    base_path = os.path.dirname(__file__)
+    template_path = os.path.join(base_path, "templates", "landing.html")
+    
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        log.log("template_error", path=template_path)
+        return "<h1>Server Online</h1><p>Template not found.</p>"
+
+# Load the content once at startup
+
+LANDING_HTML = get_landing_content()
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
