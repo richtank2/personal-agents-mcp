@@ -1,3 +1,9 @@
+"""
+MCP Server — Personal Agents MCP (AgentMail + HubSpot)
+Fixed SSE Stream Unpacking for Manus AI Compatibility
+By Richard Tanksley
+"""
+
 import os
 import json
 import uuid
@@ -126,9 +132,16 @@ async def handle_sse(request: Request):
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
+    # FIXED: Unpacking the streams into a readable and writeable stream
+    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
         log.log("sse_connection_established", ip=request.client.host)
-        await mcp.run(streams, streams, mcp.create_initialization_options())
+        
+        # FIXED: Passing individual streams to mcp.run
+        await mcp.run(
+            read_stream, 
+            write_stream, 
+            mcp.create_initialization_options()
+        )
 
 async def landing(request: Request):
     base_path = os.path.dirname(__file__)
