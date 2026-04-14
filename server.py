@@ -1,9 +1,3 @@
-"""
-MCP Server — Personal Agents MCP (AgentMail + HubSpot)
-Production-style MCP server with Full Email Body Access.
-By Richard Tanksley
-"""
-
 import os
 import json
 import uuid
@@ -33,12 +27,7 @@ class StructuredLogger:
         self.logger.handlers = [handler]
 
     def log(self, event: str, **kwargs):
-        payload = {
-            "timestamp": time.time(),
-            "service": "personal-agents-mcp",
-            "event": event,
-            **kwargs,
-        }
+        payload = {"timestamp": time.time(), "service": "personal-agents-mcp", "event": event, **kwargs}
         self.logger.info(json.dumps(payload))
 
 log = StructuredLogger()
@@ -66,103 +55,25 @@ hubspot_headers = {"Authorization": f"Bearer {HUBSPOT_ACCESS_TOKEN}", "Content-T
 
 mcp = Server("personal-agents-mcp")
 
-# ── Tool Definitions ──────────────────────────────────────────────────────────
-
-@mcp.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="list_emails",
-            description="Read recent emails including full message bodies for parsing and analysis.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "default": 5, "description": "Number of emails to retrieve (max 50)."},
-                },
-            },
-        ),
-        Tool(
-            name="send_email",
-            description=f"Send email via AgentMail (Defaults to {AGENTMAIL_INBOX_ID}).",
-            inputSchema={
-                "type": "object",
-                "required": ["to", "subject", "text"],
-                "properties": {
-                    "to": {"type": "string"},
-                    "subject": {"type": "string"},
-                    "text": {"type": "string"},
-                    "html": {"type": "string"},
-                    "from_inbox": {"type": "string"},
-                },
-            },
-        ),
-        Tool(
-            name="hubspot_request",
-            description="Universal HubSpot API access. DELETE is prohibited.",
-            inputSchema={
-                "type": "object",
-                "required": ["method", "path"],
-                "properties": {
-                    "method": {"type": "string", "enum": ["GET", "POST", "PATCH", "PUT"]},
-                    "path": {"type": "string"},
-                    "body": {"type": "object"}
-                },
-            },
-        ),
-    ]
-
-# ── Tool Dispatcher ───────────────────────────────────────────────────────────
-
-@mcp.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    request_id = str(uuid.uuid4())
-    log.log("tool_call_start", request_id=request_id, tool=name)
-
-    try:
-        if name == "list_emails":
-            result = await tool_list_emails(arguments)
-        elif name == "send_email":
-            result = await tool_send_email(arguments)
-        elif name == "hubspot_request":
-            result = await tool_hubspot_universal_proxy(arguments)
-        else:
-            result = [TextContent(type="text", text=f"Unknown tool: {name}")]
-        
-        log.log("tool_call_success", request_id=request_id)
-        return result
-    except Exception as e:
-        log.log("tool_call_error", request_id=request_id, error=str(e))
-        return [TextContent(type="text", text=f"Error: {str(e)}")]
-
 # ── Tool Implementations ──────────────────────────────────────────────────────
 
 async def tool_list_emails(args: dict):
     limit = min(args.get("limit", 5), 50)
     url = f"https://api.agentmail.to/v0/inboxes/{AGENTMAIL_UNIFIED_ID}/messages"
-    
     resp = requests.get(url, headers=agentmail_headers, params={"limit": limit})
-    if not resp.ok:
-        return [TextContent(type="text", text=f"AgentMail Error: {resp.status_code}")]
+    if not resp.ok: return [TextContent(type="text", text=f"AgentMail Error: {resp.status_code}")]
     
-    data = resp.json()
-    messages = data.get("messages", [])
-    
-    if not messages:
-        return [TextContent(type="text", text="No emails found.")]
+    messages = resp.json().get("messages", [])
+    if not messages: return [TextContent(type="text", text="No emails found.")]
 
-    # Enhanced Formatting: Including the full body for parsing
     formatted_messages = []
     for m in messages:
         msg_detail = (
-            f"--- EMAIL START ---\n"
-            f"ID: {m.get('id')}\n"
-            f"From: {m.get('from')}\n"
-            f"Subject: {m.get('subject')}\n"
-            f"Body:\n{m.get('text', m.get('body', '[No Content]'))}\n"
+            f"--- EMAIL START ---\nID: {m.get('id')}\nFrom: {m.get('from')}\n"
+            f"Subject: {m.get('subject')}\nBody:\n{m.get('text', m.get('body', '[No Content]'))}\n"
             f"--- EMAIL END ---\n"
         )
         formatted_messages.append(msg_detail)
-    
     return [TextContent(type="text", text="\n".join(formatted_messages))]
 
 async def tool_send_email(args: dict):
@@ -175,36 +86,60 @@ async def tool_send_email(args: dict):
 
 async def tool_hubspot_universal_proxy(args: dict):
     method = args["method"].upper()
-    if method == "DELETE":
-        return [TextContent(type="text", text="Error: DELETE prohibited.")]
-    path = args["path"].lstrip("/")
-    url = f"https://api.hubapi.com/{path}"
+    if method == "DELETE": return [TextContent(type="text", text="Error: DELETE prohibited.")]
+    url = f"https://api.hubapi.com/{args['path'].lstrip('/')}"
     resp = requests.request(method=method, url=url, headers=hubspot_headers, json=args.get("body", {}))
     return [TextContent(type="text", text=json.dumps(resp.json(), indent=2))]
 
-# ── App Logic & Security ──────────────────────────────────────────────────────
+# ── MCP Callbacks ───────────────────────────────────────────────────────────
+
+@mcp.list_tools()
+async def list_tools() -> list[Tool]:
+    return [
+        Tool(name="list_emails", description="Read recent emails with full bodies.", inputSchema={"type": "object", "properties": {"limit": {"type": "integer", "default": 5}}}),
+        Tool(name="send_email", description="Send email via AgentMail.", inputSchema={"type": "object", "required": ["to", "subject", "text"], "properties": {"to": {"type": "string"}, "subject": {"type": "string"}, "text": {"type": "string"}}}),
+        Tool(name="hubspot_request", description="Universal HubSpot API proxy.", inputSchema={"type": "object", "required": ["method", "path"], "properties": {"method": {"type": "string", "enum": ["GET", "POST", "PATCH", "PUT"]}, "path": {"type": "string"}, "body": {"type": "object"}}}),
+    ]
+
+@mcp.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    request_id = str(uuid.uuid4())
+    log.log("tool_call_start", request_id=request_id, tool=name)
+    try:
+        if name == "list_emails": result = await tool_list_emails(arguments)
+        elif name == "send_email": result = await tool_send_email(arguments)
+        elif name == "hubspot_request": result = await tool_hubspot_universal_proxy(arguments)
+        else: result = [TextContent(type="text", text=f"Unknown tool: {name}")]
+        log.log("tool_call_success", request_id=request_id)
+        return result
+    except Exception as e:
+        log.log("tool_call_error", request_id=request_id, error=str(e))
+        return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+# ── App Handlers ─────────────────────────────────────────────────────────────
 
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
-    # 1. Verification of Security
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    # 2. Handshake Logic
-    # We must wrap the connection in the transport logic. 
-    # If Manus is POSTing here, the transport needs to handle the scope correctly.
     async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
         log.log("sse_connection_established", ip=request.client.host)
-        await mcp.run(
-            streams, 
-            streams, 
-            mcp.create_initialization_options()
-        )
+        await mcp.run(streams, streams, mcp.create_initialization_options())
 
-# Ensure the routes are explicitly configured for the methods
+async def landing(request: Request):
+    base_path = os.path.dirname(__file__)
+    try:
+        with open(os.path.join(base_path, "templates", "landing.html"), "r") as f:
+            return HTMLResponse(f.read())
+    except:
+        return HTMLResponse("<h1>Server Online</h1>")
+
+# ── App Definition (Routes at the Bottom) ─────────────────────────────────────
+
 app = Starlette(
     routes=[
         Route("/", landing),
