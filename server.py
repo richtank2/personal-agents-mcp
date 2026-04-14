@@ -127,19 +127,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 sse_transport = SseServerTransport("/messages")
 
 async def handle_sse(request: Request):
-    # 1. Verification of Security
+    # 1. Security Check
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {MCP_ACCESS_TOKEN}":
         log.log("unauthorized_access", ip=request.client.host)
         return Response("Unauthorized", status_code=401)
 
-    # 2. Handle the Manus-style POST handshake
+    # 2. Handshake Logic
+    # If this is a POST, it's a handshake/message. 
+    # If it's a GET, it's the stream initialization.
     if request.method == "POST":
-        # For POST, we initialize the transport and return the endpoint JSON immediately
-        # This tells Manus where to send subsequent messages
         return await sse_transport.handle_post_message(request)
 
-    # 3. Handle standard GET stream initialization
+    # Standard SSE GET logic
     async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
         log.log("sse_connection_established", ip=request.client.host)
         await mcp.run(
