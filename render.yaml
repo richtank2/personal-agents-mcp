@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: agentmail-hubspot-mcp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: AGENTMAIL_API_KEY
+        sync: false          # you'll paste this in the Render dashboard
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: HUBSPOT_ACCESS_TOKEN
+        sync: false
+    healthCheckPath: /health
