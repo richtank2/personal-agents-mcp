@@ -325,6 +325,7 @@ app = Starlette(
         Route("/health", health),
         Route("/sse", handle_sse),
         Route("/messages", endpoint=sse_transport.handle_post_message, methods=["POST"]),
+        Mount("/static", app=StaticFiles(directory="static"), name="static"),
     ]
 )
 
