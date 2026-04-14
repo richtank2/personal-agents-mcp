@@ -7,72 +7,73 @@
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
-    <div class="max-w-4xl mx-auto py-20 px-6">
-        <header class="mb-12">
-            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl mb-4">
+<body class="bg-slate-50 text-slate-900 font-sans h-screen overflow-hidden">
+    <div class="max-w-4xl mx-auto py-8 px-6 h-full flex flex-col justify-between">
+        <header class="mb-6">
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl mb-2">
                 Personal Agents MCP Server
             </h1>
-            <p class="text-xl text-slate-600">
-                A production-grade Model Context Protocol (MCP) implementation bridge for <strong>AgentMail</strong> and <strong>HubSpot CRM</strong>.
+            <p class="text-lg text-slate-600">
+                A production-grade Model Context Protocol (MCP) bridge for <strong>AgentMail</strong> and <strong>HubSpot CRM</strong>.
             </p>
         </header>
 
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-semibold mb-2 text-indigo-600">The Problem</h2>
-                <p class="text-slate-600">I was having to connect numerous services via API keys for each AI agent I created.</p>
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-sm font-semibold mb-1 uppercase tracking-wide text-indigo-600">The Problem</h2>
+                <p class="text-sm text-slate-600">Managing multiple API keys across diverse AI agents was inefficient and insecure.</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-semibold mb-2 text-indigo-600">The AI Solution</h2>
-                <p class="text-slate-600">This server allows LLMs and AI agents to access the services I need to connect without me having to connect them via API key for each new agent.</p>
-            </div>
-        </section>
-
-        <section class="mb-16">
-            <h2 class="text-2xl font-bold mb-6">Core Capabilities</h2>
-            <div class="space-y-4">
-                <div class="flex items-start">
-                    <div class="bg-indigo-100 text-indigo-700 p-2 rounded-lg mr-4 font-mono font-bold text-sm">TOOL</div>
-                    <div>
-                        <h3 class="font-bold">Unified Inbox Intelligence</h3>
-                        <p class="text-slate-600">Aggregrates email signals from services like LinkedIn, Google Alerts, etc. sent to Agentmail. Sends updates on activities via Agentmail.</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <div class="bg-indigo-100 text-indigo-700 p-2 rounded-lg mr-4 font-mono font-bold text-sm">TOOL</div>
-                    <div>
-                        <h3 class="font-bold">Automated HubSpot Sync</h3>
-                        <p class="text-slate-600">Instantly creates contacts and leads from parsed emails based on defined criteria, email sentiment and intent detection.</p>
-                    </div>
-                </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-sm font-semibold mb-1 uppercase tracking-wide text-indigo-600">The AI Solution</h2>
+                <p class="text-sm text-slate-600">A centralized server allowing LLMs to access services through a single, secure gateway.</p>
             </div>
         </section>
 
-        <footer class="pt-8 border-t border-slate-200">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        <span class="w-2 h-2 mr-2 bg-green-500 rounded-full animate-pulse"></span>
+        <section class="mb-6">
+            <h2 class="text-xl font-bold mb-4">Core Capabilities</h2>
+            <div class="space-y-3">
+                <div class="flex items-start">
+                    <div class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded mr-3 font-mono font-bold text-xs">TOOL</div>
+                    <div>
+                        <h3 class="text-sm font-bold">Unified Inbox Intelligence</h3>
+                        <p class="text-xs text-slate-600">Aggregates signals from LinkedIn and Google Alerts via AgentMail.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded mr-3 font-mono font-bold text-xs">TOOL</div>
+                    <div>
+                        <h3 class="text-sm font-bold">Automated HubSpot Sync</h3>
+                        <p class="text-xs text-slate-600">Instantly creates contacts based on parsed email sentiment and intent.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="pt-4 border-t border-slate-200">
+            <div class="bg-slate-100 p-4 rounded-xl border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full animate-pulse"></span>
                         Server Status: Online
                     </span>
+                    <span class="text-slate-400 text-xs font-mono tracking-tighter">
+                        <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        AES-256 Protected
+                    </span>
                 </div>
-                <div class="text-slate-500 text-sm">
-                    Built by Richard Tanksley • 2026
-                </div>
-            </div>
-
-            <div class="bg-slate-100 p-6 rounded-xl border border-slate-200">
-                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                    Security & Governance
-                </h3>
-                <p class="text-sm text-slate-600 mb-3">
-                    <strong>Security Overview:</strong> This server utilizes <strong>Bearer Token Authentication</strong> and <strong>Server-Side Secret Management</strong> to protect CRM data. By acting as a secure proxy, the system ensures that AI agents interact with HubSpot and AgentMail through a controlled, encrypted gateway where API keys remain 100% private.
+                
+                <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                    <strong>Security:</strong> Utilizing <strong>Bearer Token Auth</strong> and <strong>Server-Side Secret Management</strong>. API keys remain private; destructive 'DELETE' operations are prohibited by the gateway logic.
                 </p>
-                <div class="flex items-center text-xs text-indigo-600 font-mono bg-indigo-50 p-2 rounded border border-indigo-100">
-                    <span class="mr-2">●</span>
-                    Audit Log: All tool calls are logged with unique Request IDs for traceability and governance.
+                
+                <div class="flex items-center justify-between">
+                    <div class="text-[10px] text-indigo-600 font-mono flex items-center">
+                        <span class="mr-1.5 text-indigo-400">●</span>
+                        Audit Log: Active with unique Request IDs for governance.
+                    </div>
+                    <div class="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+                        R. Tanksley • 2026
+                    </div>
                 </div>
             </div>
         </footer>
