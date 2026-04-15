@@ -172,13 +172,11 @@ async def ping(request: Request):
     return JSONResponse({"status": "live"}, status_code=200)
 
 async def health(request: Request):
-    body = b"ok"
-
     return Response(
-        content=body,
+        content=b"ok",
         media_type="text/plain",
         headers={
-            "Content-Length": str(len(body)),
+            "Content-Length": "2",
             "Cache-Control": "no-store",
             "Connection": "close"
         }
