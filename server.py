@@ -171,10 +171,23 @@ async def landing(request: Request):
 async def ping(request: Request):
     return JSONResponse({"status": "live"}, status_code=200)
 
+async def health(request: Request):
+    body = b"ok"
+
+    return Response(
+        content=body,
+        media_type="text/plain",
+        headers={
+            "Content-Length": str(len(body)),
+            "Cache-Control": "no-store",
+            "Connection": "close"
+        }
+    )
+
 app = Starlette(
     routes=[
         Route("/", landing),
-        Route("/health", lambda r: JSONResponse({"status": "ok"})),
+        Route("/health", health),
         Route("/ping", ping),
         Route("/sse", handle_sse, methods=["GET", "POST"]), 
         Route("/messages", endpoint=sse_transport.handle_post_message, methods=["POST"]),
