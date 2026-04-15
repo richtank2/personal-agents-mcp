@@ -168,10 +168,14 @@ async def landing(request: Request):
 
 # ── App Definition ────────────────────────────────────────────────────────────
 
+async def ping(request: Request):
+    return JSONResponse({"status": "live"}, status_code=200)
+
 app = Starlette(
     routes=[
         Route("/", landing),
         Route("/health", lambda r: JSONResponse({"status": "ok"})),
+        Route("/ping", ping),
         Route("/sse", handle_sse, methods=["GET", "POST"]), 
         Route("/messages", endpoint=sse_transport.handle_post_message, methods=["POST"]),
         Mount("/static", app=StaticFiles(directory="static"), name="static"),
