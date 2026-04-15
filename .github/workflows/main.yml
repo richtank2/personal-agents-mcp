@@ -2,7 +2,7 @@ name: Server Keep Alive
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Runs every 15 minutes
+    - cron: '*/10 * * * *' # Runs every 10 minutes
   workflow_dispatch:      # Allows you to run it manually to test
 
 jobs:
